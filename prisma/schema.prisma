@@ -13,6 +13,7 @@ datasource db {
   provider = "postgresql"
 }
 
+
 enum Role {
   CREATOR
   STUDENT
@@ -27,6 +28,7 @@ model User {
 
   courses     Course[]     @relation("CreatorCourses")
   enrollments Enrollment[]
+  comments    Comment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -76,6 +78,20 @@ model Lesson {
   module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   progress LessonProgress[]
+  comments Comment[]
+
+  createdAt DateTime @default(now())
+}
+
+model Comment {
+  id      String @id @default(uuid())
+  content String
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  lessonId String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 }
