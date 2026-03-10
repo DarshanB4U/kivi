@@ -8,6 +8,17 @@ const courseSchema = z.object({
   description: z.string().min(10),
   price: z.number().min(0),
   thumbnail: z.string().optional(),
+  modules: z.array(
+    z.object({
+      title: z.string(),
+      lessons: z.array(
+        z.object({
+          title: z.string(),
+          description: z.string(),
+        })
+      ),
+    })
+  ).optional(),
 });
 
 export async function GET() {
@@ -43,7 +54,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { title, description, price, thumbnail } = courseSchema.parse(body);
+    const { title, description, price, thumbnail, modules } = courseSchema.parse(body);
 
     const course = await prisma.course.create({
       data: {
@@ -52,6 +63,20 @@ export async function POST(req: Request) {
         price,
         thumbnail,
         creatorId: (session as any).id,
+        modules: modules ? {
+          create: modules.map((module, mIdx) => ({
+            title: module.title,
+            order: mIdx,
+            lessons: {
+              create: module.lessons.map((lesson, lIdx) => ({
+                title: lesson.title,
+                description: lesson.description,
+                order: lIdx,
+                videoUrl: "", // Placeholder for AI generated outline
+              })),
+            },
+          })),
+        } : undefined,
       },
     });
 
@@ -60,6 +85,7 @@ export async function POST(req: Request) {
     if (error instanceof ZodError) {
       return NextResponse.json({ message: (error as any).errors[0].message }, { status: 400 });
     }
+    console.error("Course Creation Error:", error);
     return NextResponse.json(
       { message: "Something went wrong" },
       { status: 500 }
