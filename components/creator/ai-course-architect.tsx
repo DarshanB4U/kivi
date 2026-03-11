@@ -79,96 +79,98 @@ export function AICourseArchitect({ onApply }: AICourseArchitectProps) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border-indigo-200 hover:border-indigo-300">
-          <Sparkles className="w-4 h-4 text-indigo-500" />
-          AI Course Architect
+        <Button variant="outline" className="neo-btn gap-2 bg-yellow-400 text-black hover:bg-yellow-500">
+          <Sparkles className="w-4 h-4" />
+          AI COURSE ARCHITECT
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[90vh]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-500" />
-            AI Course Architect
+      <DialogContent className="max-w-3xl max-h-[90vh] neo-box rounded-none border-4 p-0 overflow-hidden">
+        <DialogHeader className="p-8 border-b-4 border-black dark:border-white bg-indigo-500 text-white">
+          <DialogTitle className="flex items-center gap-2 text-3xl font-black uppercase italic tracking-tighter">
+            <Sparkles className="w-8 h-8" />
+            AI ARCHITECT
           </DialogTitle>
-          <DialogDescription>
-            Generate a full course structure in seconds. Just tell us what you want to teach.
+          <DialogDescription className="text-white/90 font-bold uppercase tracking-widest text-xs">
+            Build your master syllabus in seconds.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="topic">What is the course about?</Label>
-            <Input
-              id="topic"
-              placeholder="e.g. Master Next.js 15 & Server Components"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="audience">Who is it for? (Optional)</Label>
-            <Input
-              id="audience"
-              placeholder="e.g. JavaScript developers looking to learn Next.js"
-              value={audience}
-              onChange={(e) => setAudience(e.target.value)}
-            />
+        <div className="p-8 space-y-6 overflow-y-auto max-h-[60vh] bg-white dark:bg-black">
+          <div className="grid gap-6">
+            <div className="grid gap-2">
+              <Label htmlFor="topic" className="font-black uppercase text-xs tracking-widest">Master Topic</Label>
+              <Input
+                id="topic"
+                placeholder="e.g. ADVANCED REACT PATTERNS"
+                className="border-2 border-black font-bold h-12"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="audience" className="font-black uppercase text-xs tracking-widest">Target Audience</Label>
+              <Input
+                id="audience"
+                placeholder="e.g. SENIOR DEVELOPERS"
+                className="border-2 border-black font-bold h-12"
+                value={audience}
+                onChange={(e) => setAudience(e.target.value)}
+              />
+            </div>
           </div>
 
           <Button 
             onClick={generateOutline} 
             disabled={isGenerating || !topic}
-            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+            className="w-full neo-btn h-14 bg-black text-white dark:bg-white dark:text-black font-black text-lg uppercase tracking-widest"
           >
             {isGenerating ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Architecting your course...
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ARCHITECTING...
               </>
             ) : (
-              "Generate Outline"
+              "CONSTRUCT OUTLINE"
             )}
           </Button>
 
           {generatedOutline && (
-            <div className="mt-4 border rounded-lg overflow-hidden">
-              <ScrollArea className="h-[400px] w-full p-4">
-                <div className="space-y-6">
-                  {generatedOutline.modules.map((module, mIdx) => (
-                    <div key={mIdx} className="space-y-3">
-                      <h3 className="font-bold text-lg flex items-center gap-2">
-                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs">
-                          {mIdx + 1}
-                        </span>
-                        {module.title}
-                      </h3>
-                      <div className="grid gap-2 pl-8">
-                        {module.lessons.map((lesson, lIdx) => (
-                          <Card key={lIdx} className="bg-muted/30 border-none shadow-none">
-                            <CardContent className="p-3">
-                              <h4 className="font-semibold text-sm">{lesson.title}</h4>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {lesson.description}
-                              </p>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
+            <div className="mt-8 space-y-6">
+              <h3 className="text-xl font-black uppercase italic border-b-4 border-black inline-block">Blueprint Found</h3>
+              <div className="grid gap-6">
+                {generatedOutline.modules.map((module, mIdx) => (
+                  <div key={mIdx} className="neo-box p-4 border-2">
+                    <h4 className="font-black text-lg flex items-center gap-2 uppercase tracking-tight">
+                      <span className="flex items-center justify-center w-6 h-6 border-2 border-black bg-yellow-400 text-xs text-black">
+                        {mIdx + 1}
+                      </span>
+                      {module.title}
+                    </h4>
+                    <div className="mt-4 space-y-2 border-l-2 border-black/10 pl-4 ml-3">
+                      {module.lessons.map((lesson, lIdx) => (
+                        <div key={lIdx} className="text-sm font-bold opacity-70 flex items-start gap-2">
+                          <span className="text-black/30">•</span>
+                          {lesson.title}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </ScrollArea>
-              <div className="p-4 bg-muted/50 border-t flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => setGeneratedOutline(null)}>
-                  Clear
-                </Button>
-                <Button onClick={handleApply}>
-                  Use This Outline
-                </Button>
+                  </div>
+                ))}
               </div>
             </div>
           )}
         </div>
+
+        <DialogFooter className="p-6 border-t-4 border-black dark:border-white bg-muted/30">
+          <Button variant="ghost" className="font-black uppercase text-xs underline" onClick={() => setIsOpen(false)}>
+            ABANDON
+          </Button>
+          {generatedOutline && (
+            <Button onClick={handleApply} className="neo-btn bg-green-400 text-black hover:bg-green-500 font-black uppercase tracking-widest">
+              DEPLOY BLUEPRINT
+            </Button>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

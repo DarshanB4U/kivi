@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { verifyToken } from "@/lib/jwt";
 import { SignoutButton } from "@/components/auth/signout-button";
-import { Separator } from "@/components/ui/separator";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function CreatorLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
@@ -15,27 +15,30 @@ export default async function CreatorLayout({ children }: { children: React.Reac
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div className="min-h-screen bg-background text-foreground selection:bg-[var(--neo-yellow)] selection:text-black">
+      <header className="sticky top-0 z-50 border-b-4 border-black dark:border-white bg-white dark:bg-black py-4">
         <div className="max-w-7xl mx-auto flex h-14 items-center justify-between px-6">
-          <div className="flex items-center gap-6">
-            <Link href="/creator/courses" className="text-base font-semibold">
+          <div className="flex items-center gap-8">
+            <Link href="/creator/courses" className="text-2xl font-black uppercase italic tracking-tighter hover:bg-[var(--neo-yellow)] hover:text-black px-2 transition-colors">
               Kivi
             </Link>
-            <Separator orientation="vertical" className="h-4" />
-            <nav className="flex items-center gap-4 text-sm">
-              <Link href="/creator/courses" className="text-muted-foreground hover:text-foreground transition-colors">
+            <nav className="hidden md:flex items-center gap-6">
+              <Link href="/creator/courses" className="text-sm font-black uppercase tracking-widest hover:underline decoration-4 underline-offset-4">
                 My Courses
               </Link>
             </nav>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground">{decoded.email}</span>
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex flex-col items-end mr-2">
+              <span className="text-[10px] font-black uppercase tracking-widest leading-none">CREATOR</span>
+              <span className="text-xs font-bold truncate max-w-[150px]">{decoded.email}</span>
+            </div>
+            <ThemeToggle />
             <SignoutButton />
           </div>
         </div>
       </header>
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-6 py-12">
         {children}
       </main>
     </div>
