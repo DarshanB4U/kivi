@@ -49,7 +49,7 @@ export async function POST(req: Request) {
   try {
     const session = await getSession();
 
-    if (!session || (session as any).role !== "CREATOR") {
+    if (!session || session.role !== "CREATOR") {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
         description,
         price,
         thumbnail,
-        creatorId: (session as any).id,
+        creatorId: session.id,
         modules: modules ? {
           create: modules.map((module, mIdx) => ({
             title: module.title,
@@ -83,7 +83,8 @@ export async function POST(req: Request) {
     return NextResponse.json(course, { status: 201 });
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json({ message: (error as any).errors[0].message }, { status: 400 });
+      const message = error.issues[0]?.message || "Invalid input data";
+      return NextResponse.json({ message }, { status: 400 });
     }
     console.error("Course Creation Error:", error);
     return NextResponse.json(

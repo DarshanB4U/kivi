@@ -15,6 +15,11 @@ export async function GET(
       modules: {
         include: {
           lessons: {
+            include: {
+              video: {
+                select: { id: true, status: true },
+              },
+            },
             orderBy: { order: "asc" }
           }
         },
@@ -32,12 +37,30 @@ export async function GET(
     const enrollment = await prisma.enrollment.findUnique({
       where: {
         userId_courseId: {
-          userId: (session as any).id,
+          userId: session.id,
           courseId: id,
         },
       },
     });
     isEnrolled = !!enrollment;
+  }
+
+  const isCreator = session?.id === course.creatorId;
+
+  // Filter out videoUrl for non-creators to prevent direct downloads
+  if (!isCreator) {
+    course.modules = course.modules.map(module => ({
+      ...module,
+      lessons: module.lessons.map(lesson => {
+        // Create a new object without videoUrl
+        const { videoUrl, ...lessonWithoutVideoUrl } = lesson;
+        return {
+          ...lessonWithoutVideoUrl,
+          // We must satisfy the type, so we return an empty string
+          videoUrl: "", 
+        };
+      })
+    }));
   }
 
   return NextResponse.json({ ...course, isEnrolled });
@@ -50,13 +73,13 @@ export async function PUT(
 ) {
   const session = await getSession();
 
-  if (!session || (session as any).role !== "CREATOR") {
+  if (!session || session.role !== "CREATOR") {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
   const { id } = await params;
   const courseOwner = await prisma.course.findUnique({
-    where: { id, creatorId: (session as any).id }
+    where: { id, creatorId: session.id }
   });
 
   if (!courseOwner) {
@@ -81,14 +104,14 @@ export async function DELETE(
 ) {
   const session = await getSession();
 
-  if (!session || (session as any).role !== "CREATOR") {
+  if (!session || session.role !== "CREATOR") {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
   const { id } = await params;
 
   const courseOwner = await prisma.course.findUnique({
-    where: { id, creatorId: (session as any).id }
+    where: { id, creatorId: session.id }
   });
 
   if (!courseOwner) {

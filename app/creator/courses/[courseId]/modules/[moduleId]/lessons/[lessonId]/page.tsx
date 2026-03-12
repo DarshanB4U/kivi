@@ -23,11 +23,26 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { HlsPlayer } from "@/components/video/hls-player";
 
 const lessonSchema = z.object({
   title: z.string().min(2, "Title is required"),
   description: z.string().optional(),
 });
+
+interface VideoRecord {
+  id: string;
+  status: "UPLOADING" | "PROCESSING" | "READY" | "FAILED";
+  hlsPlaylistKey?: string;
+}
+
+interface LessonData {
+  id: string;
+  title: string;
+  description: string | null;
+  videoUrl: string;
+  video?: VideoRecord;
+}
 
 export default function EditLessonPage() {
   const router = useRouter();
@@ -38,6 +53,7 @@ export default function EditLessonPage() {
 
   const [formData, setFormData] = useState({ title: "", description: "" });
   const [currentVideoUrl, setCurrentVideoUrl] = useState("");
+  const [videoRecord, setVideoRecord] = useState<VideoRecord | null>(null);
   const [file, setFile] = useState<File | null>(null);
   
   const [isLoading, setIsLoading] = useState(true);
@@ -56,9 +72,12 @@ export default function EditLessonPage() {
       // Checking existing files showed app/api/lessons/[id]/route.ts exists.
       const lessonRes = await fetch(`/api/lessons/${lessonId}`);
       if (lessonRes.ok) {
-        const data = await lessonRes.json();
+        const data: LessonData = await lessonRes.json();
         setFormData({ title: data.title, description: data.description || "" });
         setCurrentVideoUrl(data.videoUrl);
+        if (data.video) {
+          setVideoRecord(data.video);
+        }
       }
     } catch (error) {
       console.error("Failed to fetch lesson", error);
@@ -81,11 +100,12 @@ export default function EditLessonPage() {
       body: JSON.stringify({
         filename: file.name,
         contentType: file.type,
+        lessonId,
       }),
     });
 
     if (!res.ok) throw new Error("Failed to get presigned URL");
-    const { presignedUrl, publicUrl } = await res.json();
+    const { presignedUrl, publicUrl, videoId } = await res.json();
     
     setProgress(40);
 
@@ -97,6 +117,13 @@ export default function EditLessonPage() {
 
     setProgress(80);
     if (!uploadRes.ok) throw new Error("Failed to upload video to R2");
+
+    // Signal upload complete — triggers transcoding
+    if (videoId) {
+      setProgress(85);
+      await fetch(`/api/videos/${videoId}/upload-complete`, { method: "POST" });
+      setVideoRecord({ id: videoId, status: "PROCESSING" });
+    }
     
     return publicUrl;
   };
@@ -133,7 +160,7 @@ export default function EditLessonPage() {
       router.refresh();
     } catch (error) {
       if (error instanceof z.ZodError) {
-        toast.error((error as any).errors[0].message);
+        toast.error(error.issues[0].message);
       } else {
         toast.error("Error saving lesson. Please check console.");
       }
@@ -161,122 +188,153 @@ export default function EditLessonPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto py-12 px-4 space-y-8">
-      <Link 
-        href={`/creator/courses/${courseId}`} 
-        className="inline-flex items-center text-sm font-black uppercase tracking-widest hover:text-blue-600 transition-all gap-1"
-      >
-        <ArrowLeft size={16} />
-        ABANDON EDITOR
-      </Link>
-
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-4xl font-black uppercase tracking-tighter leading-none">EDIT LESSON</h1>
-          <p className="font-bold text-muted-foreground mt-2 text-sm uppercase tracking-widest">Update content and video</p>
-        </div>
+    <div className="max-w-4xl mx-auto py-12 px-6 space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+        <Link 
+          href={`/creator/courses/${courseId}`} 
+          className="inline-flex items-center text-sm font-black uppercase tracking-widest hover:text-primary transition-all gap-2 group"
+        >
+          <div className="p-2 rounded-full bg-muted group-hover:bg-primary/10 transition-colors">
+            <ArrowLeft size={16} />
+          </div>
+          Abandon Editor
+        </Link>
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive" className="neo-btn rounded-none border-2 border-black bg-red-500 text-white font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-red-600 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all items-center gap-2 h-12">
-              <Trash2 size={18} />
-              DELETE LESSON
+            <Button variant="ghost" className="text-destructive hover:bg-destructive/10 font-bold rounded-full h-12 px-6 transition-all">
+              <Trash2 size={18} className="mr-2" />
+              Delete Lesson
             </Button>
           </AlertDialogTrigger>
-          <AlertDialogContent className="neo-box border-4 border-black rounded-none bg-white p-0 overflow-hidden text-black">
-            <AlertDialogHeader className="bg-red-500 p-6 border-b-4 border-black text-white">
-                <AlertDialogTitle className="font-black uppercase text-2xl tracking-tighter flex items-center gap-2"><Trash2 size={24} /> TRASH LESSON?</AlertDialogTitle>
-                <AlertDialogDescription className="font-bold text-white/90 text-sm uppercase tracking-widest">
-                  Warning: This will permanently eradicate this lesson.
+          <AlertDialogContent className="glass-card border-none rounded-[2rem] p-0 overflow-hidden max-w-md">
+            <AlertDialogHeader className="p-8 pb-6 text-center">
+                <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                   <Trash2 className="text-destructive" size={32} />
+                </div>
+                <AlertDialogTitle className="text-2xl font-black tracking-tighter">TRASH LESSON?</AlertDialogTitle>
+                <AlertDialogDescription className="text-base font-medium text-muted-foreground">
+                  This action is irreversible. All student progress for this lesson will be lost.
                 </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter className="p-6 bg-gray-100">
-              <AlertDialogCancel className="neo-btn rounded-none border-2 border-black font-black uppercase hover:bg-gray-200 text-black">ABANDON</AlertDialogCancel>
-              <AlertDialogAction onClick={deleteLesson} className="neo-btn rounded-none border-2 border-black font-black uppercase bg-black text-white hover:opacity-80">CONFIRM DESTRUCTION</AlertDialogAction>
+            <AlertDialogFooter className="p-8 pt-0 flex flex-col sm:flex-row gap-3">
+              <AlertDialogCancel className="w-full rounded-full border-2 font-bold h-12">Abandon</AlertDialogCancel>
+              <AlertDialogAction onClick={deleteLesson} className="w-full rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 font-bold h-12 border-none">Confirm Destruction</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
       </div>
 
-      <Card className="border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none bg-white dark:bg-black">
-         <CardContent className="pt-8">
-            <form onSubmit={handleSubmit} className="space-y-8">
+      <div className="space-y-4">
+        <h1 className="text-5xl font-black tracking-tighter leading-none">EDIT LESSON</h1>
+        <p className="text-lg font-medium text-muted-foreground leading-relaxed">Refine your curriculum and enhance the student learning experience.</p>
+      </div>
+
+      <Card className="border-none glass-card rounded-[2.5rem] bg-background/50 backdrop-blur-xl shadow-2xl">
+         <CardContent className="p-10">
+            <form onSubmit={handleSubmit} className="space-y-10">
+               <div className="grid gap-8">
+                  <div className="grid gap-3">
+                    <Label htmlFor="title" className="text-xs font-black uppercase tracking-widest text-primary ml-1">Lesson Title</Label>
+                    <Input
+                       id="title"
+                       className="h-14 bg-muted/30 border-none font-bold text-xl rounded-2xl px-6 focus-visible:ring-primary/20 shadow-inner"
+                       value={formData.title}
+                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                       placeholder="E.G. MASTERING CLOSURES"
+                       required
+                    />
+                  </div>
+
+                  <div className="grid gap-3">
+                    <Label htmlFor="description" className="text-xs font-black uppercase tracking-widest text-primary ml-1">Description (Optional)</Label>
+                    <Textarea
+                       id="description"
+                       className="min-h-[160px] bg-muted/30 border-none font-medium text-lg rounded-2xl p-6 focus-visible:ring-primary/20 resize-none shadow-inner leading-relaxed"
+                       value={formData.description}
+                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                       placeholder="Provide a brief overview of this lesson..."
+                    />
+                  </div>
+               </div>
+
                <div className="space-y-6">
-               <div className="grid gap-2">
-                  <Label htmlFor="title" className="font-black uppercase text-xs tracking-widest">LESSON TITLE</Label>
-                  <Input
-                     id="title"
-                     className="h-12 border-2 border-black rounded-none font-bold uppercase"
-                     value={formData.title}
-                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                     placeholder="E.G. MASTERING CLOSURES"
-                     required
-                  />
-               </div>
+                 <Label className="text-xs font-black uppercase tracking-widest text-primary ml-1">Video Component</Label>
+                 
+                 <div className="grid lg:grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                       <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Active Media</span>
+                       {videoRecord?.status === "READY" && videoRecord?.id ? (
+                       <div className="aspect-video rounded-[1.5rem] overflow-hidden shadow-2xl ring-1 ring-primary/10">
+                          <HlsPlayer
+                            videoId={videoRecord.id}
+                            fallbackUrl={currentVideoUrl}
+                          />
+                       </div>
+                       ) : videoRecord?.status === "PROCESSING" ? (
+                       <div className="aspect-video bg-muted/50 flex flex-col items-center justify-center rounded-[1.5rem] gap-4 border border-indigo-500/20">
+                          <div className="relative">
+                            <Loader2 size={48} className="animate-spin text-indigo-500" />
+                            <div className="absolute inset-0 blur-xl bg-indigo-500/20 animate-pulse" />
+                          </div>
+                          <Badge variant="secondary" className="bg-indigo-500 text-white border-none font-black uppercase tracking-widest text-[10px] px-4 py-1.5 rounded-full shadow-lg shadow-indigo-500/20">
+                            TRANSCODING MEDIA
+                          </Badge>
+                          <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest animate-pulse">Processing Masterclass...</p>
+                       </div>
+                       ) : currentVideoUrl ? (
+                       <div className="aspect-video bg-muted/30 relative group overflow-hidden rounded-[1.5rem] border border-primary/10 transition-all hover:ring-2 hover:ring-primary/20">
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-all">
+                             <PlayCircle size={64} className="text-white drop-shadow-2xl" />
+                          </div>
+                          <div className="absolute top-4 right-4">
+                             <Badge variant="secondary" className="bg-green-500 text-white border-none font-black uppercase tracking-widest text-[10px] px-3 py-1 rounded-full">Active</Badge>
+                          </div>
+                       </div>
+                       ) : (
+                       <div className="aspect-video bg-muted/20 flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/20 rounded-[1.5rem] gap-3">
+                          <PlayCircle size={48} className="text-muted-foreground/20" />
+                          <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">No Media Assigned</span>
+                       </div>
+                       )}
+                    </div>
 
-               <div className="grid gap-2">
-                  <Label htmlFor="description" className="font-black uppercase text-xs tracking-widest">DESCRIPTION (OPTIONAL)</Label>
-                  <Textarea
-                     id="description"
-                     className="min-h-[160px] border-2 border-black rounded-none font-bold resize-y"
-                     value={formData.description}
-                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                     placeholder="Provide a brief overview of this lesson..."
-                  />
-               </div>
-               </div>
-
-               <div className="space-y-4">
-               <Label className="font-black uppercase text-xs tracking-widest">VIDEO CONTENT</Label>
-               
-               <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                     <span className="text-xs font-black uppercase text-muted-foreground tracking-widest">CURRENT VIDEO</span>
-                     {currentVideoUrl ? (
-                     <div className="aspect-video bg-muted relative group overflow-hidden border-4 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-all">
-                           <PlayCircle size={64} className="text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]" />
-                        </div>
-                        <div className="absolute bottom-2 left-2 right-2 flex justify-end">
-                           <Badge className="bg-green-400 text-black border-2 border-black font-black uppercase tracking-widest text-[10px] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] rounded-none">ACTIVE VIDEO</Badge>
-                        </div>
-                     </div>
-                     ) : (
-                     <div className="aspect-video bg-gray-50 dark:bg-zinc-900 flex items-center justify-center border-4 border-dashed border-black/30 dark:border-white/30 rounded-none">
-                        <span className="text-xs text-muted-foreground font-black uppercase tracking-widest">NO VIDEO ASSIGNED</span>
-                     </div>
-                     )}
-                  </div>
-
-                  <div className="space-y-2">
-                     <span className="text-xs font-black uppercase text-muted-foreground tracking-widest">REPLACE VIDEO</span>
-                     <div className="aspect-video bg-yellow-400/10 flex flex-col items-center justify-center relative hover:bg-yellow-400/20 transition-colors cursor-pointer border-4 border-dashed border-black dark:border-white rounded-none">
-                     <input 
-                        type="file" 
-                        accept="video/*" 
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        onChange={handleFileChange}
-                     />
-                     <UploadCloud size={48} className="text-black dark:text-white" />
-                     <span className="text-sm font-black uppercase tracking-widest mt-4 text-center px-4 text-black dark:text-white">
-                        {file ? file.name : "CLICK OR DRAG TO REPLACE"}
-                     </span>
-                     </div>
-                  </div>
-               </div>
+                    <div className="space-y-3">
+                       <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Replace Media</span>
+                       <div className="aspect-video bg-primary/5 flex flex-col items-center justify-center relative hover:bg-primary/10 transition-all cursor-pointer border-2 border-dashed border-primary/20 rounded-[1.5rem] group overflow-hidden">
+                       <input 
+                          type="file" 
+                          accept="video/*" 
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                          onChange={handleFileChange}
+                       />
+                       <div className="bg-background w-16 h-16 rounded-2xl shadow-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                          <UploadCloud size={32} className="text-primary" />
+                       </div>
+                       <div className="text-center px-6 mt-4 space-y-1">
+                          <span className="block text-sm font-black uppercase tracking-widest text-foreground">
+                             {file ? "File Selected" : "Click to Replace"}
+                          </span>
+                          <span className="block text-[10px] font-bold text-muted-foreground uppercase truncate max-w-[200px]">
+                             {file ? file.name : "High-fidelity video only"}
+                          </span>
+                       </div>
+                       </div>
+                    </div>
+                 </div>
                </div>
 
                {isUploading && (
-               <div className="space-y-4 p-4 rounded-none border-4 border-black bg-blue-100 dark:bg-blue-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                  <div className="flex items-center justify-between text-xs font-black uppercase text-black dark:text-white tracking-widest">
+               <div className="space-y-4 p-6 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 animate-in slide-in-from-top-2 duration-300">
+                  <div className="flex items-center justify-between text-[10px] font-black uppercase text-indigo-500 tracking-widest">
                      <span className="flex items-center gap-2">
-                     <Loader2 size={16} className="animate-spin" /> 
-                     UPLOADING MEDIA...
+                     <Loader2 size={14} className="animate-spin" /> 
+                     Uploading Media Corridor...
                      </span>
                      <span>{progress}%</span>
                   </div>
-                  <div className="h-4 w-full bg-white dark:bg-black border-2 border-black rounded-none overflow-hidden">
+                  <div className="h-2 w-full bg-indigo-500/10 rounded-full overflow-hidden">
                      <div 
-                     className="h-full bg-blue-500 transition-all duration-300" 
+                     className="h-full bg-indigo-500 transition-all duration-300 shadow-[0_0_20px_rgba(99,102,241,0.5)]" 
                      style={{ width: `${progress}%` }} 
                      />
                   </div>
@@ -286,17 +344,17 @@ export default function EditLessonPage() {
                <Button
                type="submit"
                disabled={isSaving}
-               className="w-full h-14 neo-btn rounded-none border-2 border-black bg-yellow-400 text-black hover:bg-yellow-500 font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-lg hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all tracking-widest"
+               className="w-full h-16 rounded-full font-black uppercase shadow-2xl shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all text-lg tracking-widest"
                >
                {isSaving ? (
                   <>
                      <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                     SAVING CHANGES...
+                     Orchestrating Changes...
                   </>
                ) : (
                   <>
                      <Save className="mr-2 h-6 w-6" />
-                     SAVE LESSON
+                     Save Lesson Masterpiece
                   </>
                )}
                </Button>
@@ -306,3 +364,4 @@ export default function EditLessonPage() {
     </div>
   );
 }
+

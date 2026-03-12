@@ -17,6 +17,8 @@ const lessonSchema = z.object({
   description: z.string().optional(),
 });
 
+
+
 export default function NewLessonPage() {
   const router = useRouter();
   const params = useParams();
@@ -37,7 +39,7 @@ export default function NewLessonPage() {
 
   const uploadToR2 = async (file: File) => {
     setProgress(10);
-    // Get presigned URL
+    // Get presigned URL (no lessonId yet since lesson doesn't exist)
     const res = await fetch("/api/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -48,7 +50,7 @@ export default function NewLessonPage() {
     });
 
     if (!res.ok) throw new Error("Failed to get presigned URL");
-    const { presignedUrl, publicUrl } = await res.json();
+    const { presignedUrl, publicUrl, videoId } = await res.json();
     
     setProgress(40);
 
@@ -65,7 +67,7 @@ export default function NewLessonPage() {
 
     if (!uploadRes.ok) throw new Error("Failed to upload video to R2");
     
-    return publicUrl;
+    return { publicUrl, videoId };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -79,11 +81,11 @@ export default function NewLessonPage() {
       setIsUploading(true);
       lessonSchema.parse(formData);
 
-      // 1. Upload Video
-      const videoUrl = await uploadToR2(file);
+      // 1. Upload Video to R2
+      const { publicUrl: videoUrl, videoId } = await uploadToR2(file);
 
       // 2. Save Lesson
-      setProgress(90);
+      setProgress(85);
       const saveRes = await fetch("/api/lessons", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -91,11 +93,27 @@ export default function NewLessonPage() {
           ...formData,
           videoUrl,
           moduleId,
-          order: 0, // In standard implementation you'd calculate the actual order
+          order: 0,
         }),
       });
 
       if (!saveRes.ok) throw new Error("Failed to save lesson");
+      const lesson = await saveRes.json();
+
+      // 3. Link video to lesson and trigger transcoding
+      if (videoId && lesson.id) {
+        setProgress(90);
+        // Link the video to the newly created lesson
+        await fetch(`/api/videos/${videoId}/link`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lessonId: lesson.id }),
+        });
+        
+        // Trigger transcoding
+        setProgress(95);
+        await fetch(`/api/videos/${videoId}/upload-complete`, { method: "POST" });
+      }
       
       setProgress(100);
       router.push(`/creator/courses/${courseId}`);
@@ -114,74 +132,85 @@ export default function NewLessonPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto py-8 px-4 space-y-8">
+    <div className="max-w-3xl mx-auto py-12 px-6 space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <Link 
         href={`/creator/courses/${courseId}`} 
-        className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-all gap-1"
+        className="inline-flex items-center text-sm font-black uppercase tracking-widest hover:text-primary transition-all gap-2 group"
       >
-        <ArrowLeft size={16} />
+        <div className="p-2 rounded-full bg-muted group-hover:bg-primary/10 transition-colors">
+          <ArrowLeft size={16} />
+        </div>
         Back to Editor
       </Link>
 
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Add New Lesson</h1>
-        <p className="text-muted-foreground mt-2">Upload your video lesson and provide details below.</p>
+      <div className="space-y-4">
+        <h1 className="text-5xl font-black tracking-tighter leading-none">NEW LESSON</h1>
+        <p className="text-lg font-medium text-muted-foreground leading-relaxed">Expand your course with fresh interactive content.</p>
       </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="title">Lesson Title</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="e.g. Getting Started"
-                required
-              />
+      <Card className="border-none glass-card rounded-[2.5rem] bg-background/50 backdrop-blur-xl shadow-2xl">
+        <CardContent className="p-10">
+          <form onSubmit={handleSubmit} className="space-y-10">
+            <div className="grid gap-8">
+              <div className="grid gap-3">
+                <Label htmlFor="title" className="text-xs font-black uppercase tracking-widest text-primary ml-1">Lesson Title</Label>
+                <Input
+                  id="title"
+                  className="h-14 bg-muted/30 border-none font-bold text-xl rounded-2xl px-6 focus-visible:ring-primary/20 shadow-inner"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="e.g. Masterclass Foundations"
+                  required
+                />
+              </div>
+
+              <div className="grid gap-3">
+                <Label htmlFor="description" className="text-xs font-black uppercase tracking-widest text-primary ml-1">Description (Optional)</Label>
+                <Textarea
+                  id="description"
+                  className="min-h-[160px] bg-muted/30 border-none font-medium text-lg rounded-2xl p-6 focus-visible:ring-primary/20 resize-none shadow-inner leading-relaxed"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="What will students learn in this specific lesson?"
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="description">Description (Optional)</Label>
-              <Textarea
-                id="description"
-                className="min-h-[100px]"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="What will students learn in this specific lesson?"
-              />
-            </div>
-
-            <div className="space-y-2">
-               <Label>Video Content</Label>
-               <div className="border border-dashed bg-muted/30 rounded-lg p-8 flex flex-col items-center justify-center relative hover:bg-muted/50 transition-colors">
+            <div className="space-y-6">
+               <Label className="text-xs font-black uppercase tracking-widest text-primary ml-1">Video Component</Label>
+               <div className="aspect-video bg-primary/5 flex flex-col items-center justify-center relative hover:bg-primary/10 transition-all cursor-pointer border-2 border-dashed border-primary/20 rounded-[2.5rem] group overflow-hidden">
                  <input 
                    type="file" 
                    accept="video/*" 
-                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                    onChange={handleFileChange}
                  />
-                 <UploadCloud size={40} className="text-muted-foreground mb-4" />
-                 <h3 className="font-medium text-foreground text-center">
-                   {file ? file.name : "Click or drag to upload video"}
-                 </h3>
-                 <p className="text-sm text-muted-foreground mt-1">MP4, WebM (Max 5GB)</p>
+                 <div className="bg-background w-16 h-16 rounded-2xl shadow-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                    <UploadCloud size={32} className="text-primary" />
+                 </div>
+                 <div className="text-center px-6 mt-4 space-y-2">
+                   <h3 className="text-lg font-bold tracking-tight text-foreground">
+                     {file ? "Media Captured" : "Click to Upload Masterclass"}
+                   </h3>
+                   <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+                     {file ? file.name : "MP4, WebM (Max 5GB)"}
+                   </p>
+                 </div>
                </div>
             </div>
 
             {isUploading && (
-              <div className="space-y-2 bg-primary/5 p-4 rounded-lg border border-primary/10">
-                <div className="flex items-center justify-between text-sm font-medium text-primary">
+              <div className="space-y-4 p-6 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 animate-in slide-in-from-top-2 duration-300">
+                <div className="flex items-center justify-between text-[10px] font-black uppercase text-indigo-500 tracking-widest">
                   <span className="flex items-center gap-2">
-                    <Loader2 size={16} className="animate-spin" /> 
-                    Uploading...
+                    <Loader2 size={14} className="animate-spin" /> 
+                    Conducting Media Upload...
                   </span>
                   <span>{progress}%</span>
                 </div>
-                <div className="h-2 w-full bg-primary/10 rounded-full overflow-hidden">
+                <div className="h-2 w-full bg-indigo-500/10 rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-primary transition-all duration-300" 
+                    className="h-full bg-indigo-500 transition-all duration-300 shadow-[0_0_20px_rgba(99,102,241,0.5)]" 
                     style={{ width: `${progress}%` }} 
                   />
                 </div>
@@ -191,9 +220,9 @@ export default function NewLessonPage() {
             <Button
               type="submit"
               disabled={isUploading}
-              className="w-full h-12 text-base"
+              className="w-full h-16 rounded-full font-black uppercase shadow-2xl shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all text-lg tracking-widest"
             >
-              Save Lesson
+              Construct Lesson
             </Button>
           </form>
         </CardContent>
@@ -201,3 +230,4 @@ export default function NewLessonPage() {
     </div>
   );
 }
+

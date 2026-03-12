@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import {
   PlayCircle, CheckCircle, Circle, ChevronDown, ChevronRight,
@@ -13,16 +13,119 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { HlsPlayer } from "@/components/video/hls-player";
+
+function VideoProcessingStatus({
+  videoId,
+  status: initialStatus,
+  onReady,
+}: {
+  videoId: string;
+  status: string;
+  onReady: () => void;
+}) {
+  const [status, setStatus] = useState(initialStatus);
+
+  useEffect(() => {
+    if (status === "READY" || status === "FAILED") return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/videos/${videoId}/status`);
+        if (res.ok) {
+          const data = await res.json();
+          setStatus(data.status);
+          if (data.status === "READY") {
+            clearInterval(interval);
+            onReady();
+          } else if (data.status === "FAILED") {
+            clearInterval(interval);
+          }
+        }
+      } catch {}
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [videoId, status, onReady]);
+
+  const statusLabel =
+    status === "UPLOADING" ? "Uploading video..." :
+    status === "PROCESSING" ? "Transcoding video to HLS..." :
+    "Preparing video...";
+
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center gap-5 bg-black text-white">
+      <div className="relative">
+        <div className="absolute inset-0 rounded-full bg-yellow-400/20 animate-ping" />
+        <div className="relative rounded-full bg-yellow-400/10 p-5">
+          <Loader2 size={44} className="animate-spin text-yellow-400" />
+        </div>
+      </div>
+      <div className="text-center space-y-2 px-4">
+        <p className="font-semibold text-lg">Video is being processed</p>
+        <p className="text-sm text-white/50">{statusLabel}</p>
+        <p className="text-xs text-white/30">This page will automatically update when the video is ready.</p>
+      </div>
+      <Badge variant="outline" className="border-yellow-500/50 text-yellow-400 text-xs">
+        <Loader2 size={12} className="animate-spin mr-1.5" />
+        {status}
+      </Badge>
+    </div>
+  );
+}
+
+interface User {
+  id: string;
+  name: string | null;
+  image: string | null;
+}
+
+interface Video {
+  id: string;
+  status: "UPLOADING" | "PROCESSING" | "READY" | "FAILED";
+}
+
+interface Lesson {
+  id: string;
+  title: string;
+  description: string | null;
+  videoUrl: string;
+  order: number;
+  video?: Video;
+}
+
+interface Module {
+  id: string;
+  title: string;
+  order: number;
+  lessons: Lesson[];
+}
+
+interface Course {
+  id: string;
+  title: string;
+  description: string | null;
+  price: number;
+  isEnrolled: boolean;
+  modules: Module[];
+}
+
+interface Comment {
+  id: string;
+  content: string;
+  createdAt: string;
+  user: User;
+}
 
 export default function CoursePlayerPage() {
   const params = useParams();
   const courseId = params.courseId as string;
 
-  const [course, setCourse] = useState<any>(null);
-  const [activeLesson, setActiveLesson] = useState<any>(null);
+  const [course, setCourse] = useState<Course | null>(null);
+  const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
   const [progressData, setProgressData] = useState<Record<string, boolean>>({});
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
-  const [comments, setComments] = useState<any[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
@@ -35,7 +138,7 @@ export default function CoursePlayerPage() {
     try {
       const res = await fetch(`/api/courses/${courseId}`);
       if (res.ok) {
-        const data = await res.json();
+        const data: Course = await res.json();
         setCourse(data);
         const initial: Record<string, boolean> = {};
         if (data.modules?.[0]) {
@@ -126,7 +229,7 @@ export default function CoursePlayerPage() {
           <Card>
             <CardHeader><CardTitle>Modules</CardTitle></CardHeader>
             <CardContent className="space-y-2">
-              {course.modules?.map((m: any, i: number) => (
+              {course.modules?.map((m: Module, i: number) => (
                 <div key={m.id} className="flex items-center gap-3 text-sm text-muted-foreground">
                   <span className="w-6 h-6 flex items-center justify-center rounded-md bg-muted text-xs font-medium">{i + 1}</span>
                   {m.title}
@@ -154,11 +257,40 @@ export default function CoursePlayerPage() {
       <div className="flex-1 space-y-4">
         <div className="aspect-video bg-black rounded-xl overflow-hidden border">
           {activeLesson ? (
-            <video src={activeLesson.videoUrl} controls controlsList="nodownload" className="w-full h-full object-contain" onEnded={() => markCompleted(activeLesson.id, true)} />
+            activeLesson.video?.id ? (
+              activeLesson.video.status === "READY" ? (
+                <HlsPlayer
+                  videoId={activeLesson.video.id}
+                  onEnded={() => markCompleted(activeLesson.id, true)}
+                />
+              ) : activeLesson.video.status === "FAILED" ? (
+                <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-black text-white">
+                  <div className="rounded-full bg-red-500/20 p-4">
+                    <PlayCircle size={40} className="text-red-400" />
+                  </div>
+                  <p className="font-semibold text-lg">Processing Failed</p>
+                  <p className="text-sm text-white/50">This video could not be processed. Please contact the course creator.</p>
+                </div>
+              ) : (
+                <VideoProcessingStatus
+                  videoId={activeLesson.video.id}
+                  status={activeLesson.video.status}
+                  onReady={() => {
+                    // Refresh course data when video becomes ready
+                    fetchCourse();
+                  }}
+                />
+              )
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-black text-white">
+                <PlayCircle size={40} className="text-white/30" />
+                <p className="text-sm text-white/50">No video available for this lesson.</p>
+              </div>
+            )
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
-              <PlayCircle size={40} />
-              <p className="text-sm">Select a lesson to start</p>
+            <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-black text-white">
+              <PlayCircle size={40} className="text-white/30" />
+              <p className="text-sm text-white/60 font-medium">Select a lesson to start</p>
             </div>
           )}
         </div>
@@ -217,7 +349,7 @@ export default function CoursePlayerPage() {
                 <p className="text-sm text-muted-foreground text-center py-6">No comments yet. Start the conversation.</p>
               ) : (
                 <div className="space-y-4">
-                  {comments.map((c: any) => (
+                  {comments.map((c: Comment) => (
                     <div key={c.id} className="flex gap-3">
                       <Avatar className="h-8 w-8 flex-shrink-0">
                         <AvatarFallback className="text-xs">{c.user.name?.[0] || "U"}</AvatarFallback>
@@ -246,7 +378,7 @@ export default function CoursePlayerPage() {
             <p className="text-xs text-muted-foreground">Course content</p>
           </CardHeader>
           <div className="flex-1 overflow-y-auto">
-            {course.modules?.map((mod: any, mIdx: number) => (
+            {course.modules?.map((mod: Module, mIdx: number) => (
               <div key={mod.id} className="border-b last:border-0">
                 <button onClick={() => toggleModule(mod.id)} className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors text-left">
                   <div className="min-w-0">
@@ -261,7 +393,7 @@ export default function CoursePlayerPage() {
                     {mod.lessons?.length === 0 ? (
                       <p className="p-3 text-xs text-muted-foreground italic">No lessons</p>
                     ) : (
-                      mod.lessons?.map((lesson: any, lIdx: number) => {
+                      mod.lessons?.map((lesson: Lesson, lIdx: number) => {
                         const isActive = activeLesson?.id === lesson.id;
                         const isDone = progressData[lesson.id];
                         return (

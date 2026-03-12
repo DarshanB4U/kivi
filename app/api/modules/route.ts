@@ -13,7 +13,7 @@ export async function POST(req: Request) {
   try {
     const session = await getSession();
 
-    if (!session || (session as any).role !== "CREATOR") {
+    if (!session || session.role !== "CREATOR") {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
@@ -27,7 +27,8 @@ export async function POST(req: Request) {
     return NextResponse.json(module, { status: 201 });
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json({ message: (error as any).errors[0].message }, { status: 400 });
+      const message = error.issues[0]?.message || "Invalid input data";
+      return NextResponse.json({ message }, { status: 400 });
     }
     return NextResponse.json(
       { message: "Something went wrong" },

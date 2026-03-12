@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { PlusCircle, Trash2, PlayCircle, Loader2, Share2, Users, ArrowLeft, Pencil, Check, X } from "lucide-react";
+import { PlusCircle, Trash2, PlayCircle, Loader2, Share2, Users, ArrowLeft, Pencil, Check, X, Code, BookOpen } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,23 +22,100 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
+interface Lesson {
+  id: string;
+  title: string;
+  videoUrl: string;
+  duration?: number;
+  video?: {
+    id: string;
+    status: "UPLOADING" | "PROCESSING" | "READY" | "FAILED";
+  };
+}
+
+interface Module {
+  id: string;
+  title: string;
+  lessons: Lesson[];
+}
+
+interface Course {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  modules: Module[];
+}
+
+const VideoStatusBadge = ({ status }: { status: string }) => {
+  switch (status) {
+    case "UPLOADING":
+      return (
+        <Badge variant="secondary" className="rounded-full font-black uppercase text-[10px] px-2 py-0.5 bg-yellow-400/20 text-yellow-600 dark:text-yellow-400 border-none animate-pulse">
+           UPLOADING...
+        </Badge>
+      );
+    case "PROCESSING":
+      return (
+        <Badge variant="secondary" className="rounded-full font-black uppercase text-[10px] px-2 py-0.5 bg-blue-400/20 text-blue-600 dark:text-blue-400 border-none">
+           <Loader2 size={10} className="mr-1 animate-spin" />
+           PROCESSING
+        </Badge>
+      );
+    case "READY":
+      return (
+        <Badge variant="secondary" className="rounded-full font-black uppercase text-[10px] px-2 py-0.5 bg-green-400/20 text-green-600 dark:text-green-400 border-none">
+           READY
+        </Badge>
+      );
+    case "FAILED":
+      return (
+        <Badge variant="destructive" className="rounded-full font-black uppercase text-[10px] px-2 py-0.5 border-none">
+           FAILED
+        </Badge>
+      );
+    default:
+      return null;
+  }
+};
+
 export default function CourseEditorPage() {
   const params = useParams();
   const courseId = params.courseId as string;
 
-  const [course, setCourse] = useState<any>(null);
+  const [course, setCourse] = useState<Course | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddingModule, setIsAddingModule] = useState(false);
   const [newModuleTitle, setNewModuleTitle] = useState("");
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
   const [editingModuleTitle, setEditingModuleTitle] = useState("");
 
-  useEffect(() => { fetchCourse(); }, [courseId]);
+  useEffect(() => { 
+    fetchCourse(); 
+  }, [courseId]);
+
+  useEffect(() => {
+    if (!course) return;
+
+    const hasProcessingVideos = course.modules.some(m => 
+      m.lessons.some(l => l.video && (l.video.status === "UPLOADING" || l.video.status === "PROCESSING"))
+    );
+
+    if (hasProcessingVideos) {
+      const interval = setInterval(() => {
+        fetchCourse();
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [course]);
 
   const fetchCourse = async () => {
     try {
       const res = await fetch(`/api/courses/${courseId}`);
-      if (res.ok) setCourse(await res.json());
+      if (res.ok) {
+        const data: Course = await res.json();
+        setCourse(data);
+      }
     } catch { console.error("Failed to fetch course"); }
     finally { setIsLoading(false); }
   };
@@ -76,171 +153,192 @@ export default function CourseEditorPage() {
     return <div className="flex items-center justify-center min-h-[50vh]"><Loader2 className="animate-spin text-muted-foreground" size={24} /></div>;
   }
 
-  if (!course) return <p className="text-center py-12 text-muted-foreground">Course not found.</p>;
+  if (!course) return <p className="text-center py-12 text-muted-foreground font-bold">Course not found.</p>;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-10 py-10 px-4">
-      {/* Back Link */}
-      <Link 
-        href="/creator/courses" 
-        className="inline-flex items-center text-sm font-black uppercase tracking-widest hover:text-blue-600 transition-all gap-1"
-      >
-        <ArrowLeft size={16} />
-        ABANDON EDITOR
-      </Link>
-
-      {/* Hero / Header Section */}
-      <Card className="p-8 flex flex-col md:flex-row justify-between items-start gap-6 bg-yellow-400 dark:bg-yellow-500 border-4 border-black dark:border-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] rounded-none">
-        <div className="space-y-4 flex-1 text-black">
-          <Badge variant="outline" className="rounded-none border-2 border-black bg-white text-black font-black uppercase text-xs shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] px-3 py-1">Creator Mode</Badge>
-          <h1 className="text-4xl font-black uppercase tracking-tighter leading-none">{course.title}</h1>
-          <p className="text-base font-bold text-black/80 max-w-2xl">{course.description}</p>
-          <div className="flex items-center gap-4">
-            <span className="text-2xl font-black">${course.price}</span>
-            <Separator orientation="vertical" className="h-6 w-[3px] bg-black" />
-            <span className="text-sm font-black tracking-widest">{course?.modules?.length || 0} MODULES</span>
+    <div className="max-w-5xl mx-auto space-y-12 py-10 px-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+        <Link 
+          href="/creator/courses" 
+          className="inline-flex items-center text-sm font-black uppercase tracking-widest hover:text-primary transition-all gap-2 group"
+        >
+          <div className="p-2 rounded-full bg-muted group-hover:bg-primary/10 transition-colors">
+            <ArrowLeft size={16} />
           </div>
+          Abandon Editor
+        </Link>
+        <div className="flex items-center gap-4">
+           <Button variant="outline" className="rounded-full font-bold border-2" asChild>
+             <Link href={`/creator/courses/${courseId}/students`}>
+               <Users size={16} className="mr-2" />
+               View Students
+             </Link>
+           </Button>
+           <Button className="rounded-full font-bold shadow-lg shadow-primary/20" onClick={() => {
+              navigator.clipboard.writeText(`${window.location.origin}/student/courses/${courseId}`);
+              toast.success("Link copied!");
+            }}>
+             <Share2 size={16} className="mr-2" />
+             Copy Link
+           </Button>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <Button variant="outline" className="neo-btn rounded-none border-2 border-black bg-white text-black font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all" asChild>
-            <Link href={`/creator/courses/${courseId}/students`}>
-              <Users size={16} className="mr-2" />
-              STUDENTS
-            </Link>
-          </Button>
-          <Button variant="secondary" className="neo-btn rounded-none border-2 border-black bg-blue-400 text-black font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-blue-500 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all gap-2" onClick={() => {
-            navigator.clipboard.writeText(`${window.location.origin}/student/courses/${courseId}`);
-            toast.success("Link copied!");
-          }}>
-            <Share2 size={16} />
-            SHARE
-          </Button>
+      </div>
+
+      <Card className="relative overflow-hidden border-none rounded-[2.5rem] bg-indigo-600 text-white p-10 shadow-2xl shadow-indigo-500/20">
+        <div className="absolute top-0 right-0 p-8 opacity-10">
+           <Code size={160} strokeWidth={1} />
+        </div>
+        <div className="relative z-10 space-y-6">
+          <Badge variant="secondary" className="rounded-full px-4 py-1 bg-white/20 text-white border-none font-black uppercase text-[10px] tracking-widest backdrop-blur-md">Creator Mode</Badge>
+          <div className="space-y-4">
+            <h1 className="text-5xl font-black tracking-tighter leading-none">{course.title}</h1>
+            <p className="text-lg font-medium text-white/80 max-w-2xl leading-relaxed">{course.description}</p>
+          </div>
+          <div className="flex items-center gap-8 pt-4">
+            <div className="flex flex-col">
+               <span className="text-3xl font-black">${course.price}</span>
+               <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Price Point</span>
+            </div>
+            <div className="h-10 w-px bg-white/20" />
+            <div className="flex flex-col">
+               <span className="text-3xl font-black">{course?.modules?.length || 0}</span>
+               <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Modules</span>
+            </div>
+          </div>
         </div>
       </Card>
 
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-3xl font-black uppercase tracking-tighter">COURSE SYLLABUS</h2>
-          <Button size="sm" className="neo-btn rounded-none border-2 border-black bg-green-400 text-black font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-green-500 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all" onClick={() => setIsAddingModule(!isAddingModule)}>
-            <PlusCircle size={16} className="mr-2" />
-            ADD MODULE
+      <div className="space-y-8">
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="text-3xl font-black tracking-tighter">COURSE SYLLABUS</h2>
+            <p className="text-muted-foreground font-medium">Structure and manage your educational content.</p>
+          </div>
+          <Button className="rounded-full font-bold h-12 px-6" onClick={() => setIsAddingModule(!isAddingModule)}>
+            <PlusCircle size={18} className="mr-2" />
+            Add Module
           </Button>
         </div>
 
         {isAddingModule && (
-          <Card className="p-6 bg-white dark:bg-black border-4 border-black dark:border-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] rounded-none">
+          <Card className="p-8 glass-card border-none rounded-[2rem] animate-in zoom-in-95 duration-300">
             <div className="flex flex-col sm:flex-row gap-4">
               <Input
                 placeholder="ENTER MODULE TITLE..."
-                className="h-12 border-2 border-black font-bold uppercase rounded-none"
+                className="h-14 bg-muted/50 border-none font-bold text-lg rounded-2xl px-6 focus-visible:ring-primary/20"
                 value={newModuleTitle}
                 onChange={(e) => setNewModuleTitle(e.target.value)}
                 autoFocus
               />
-              <div className="flex gap-2">
-                <Button className="h-12 neo-btn rounded-none border-2 border-black bg-black text-white dark:bg-white dark:text-black font-black uppercase hover:opacity-80" onClick={addModule}>SAVE</Button>
-                <Button variant="ghost" className="h-12 font-black uppercase underline" onClick={() => setIsAddingModule(false)}>CANCEL</Button>
+              <div className="flex gap-3">
+                <Button className="h-14 px-8 rounded-2xl font-black" onClick={addModule}>Save Module</Button>
+                <Button variant="ghost" className="h-14 font-bold text-muted-foreground hover:bg-transparent hover:text-foreground" onClick={() => setIsAddingModule(false)}>Cancel</Button>
               </div>
             </div>
           </Card>
         )}
 
-        <div className="grid gap-6">
-          {course.modules?.map((module: any, index: number) => (
-            <Card key={module.id} className="overflow-hidden bg-white dark:bg-black border-4 border-black dark:border-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)] rounded-none flex flex-col group">
-              <div className="border-b-4 border-black dark:border-white p-4 flex items-center justify-between bg-indigo-100 dark:bg-indigo-950">
-                <div className="flex items-center gap-4 flex-1">
-                  <span className="flex items-center justify-center w-10 h-10 font-black border-2 border-black bg-yellow-400 text-black text-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] rounded-none">
+        <div className="grid gap-10">
+          {course.modules?.map((module: Module, index: number) => (
+            <Card key={module.id} className="overflow-hidden glass-card border-none rounded-[2.5rem] flex flex-col group shadow-xl">
+              <div className="p-8 flex items-center justify-between bg-primary/5">
+                <div className="flex items-center gap-6 flex-1">
+                  <div className="flex items-center justify-center w-12 h-12 font-black bg-primary text-primary-foreground rounded-2xl shadow-lg shadow-primary/20 text-xl">
                     {index + 1}
-                  </span>
+                  </div>
                   {editingModuleId === module.id ? (
-                    <div className="flex items-center gap-2 flex-1 max-w-md">
+                    <div className="flex items-center gap-3 flex-1 max-w-md">
                       <Input
                         value={editingModuleTitle}
                         onChange={(e) => setEditingModuleTitle(e.target.value)}
-                        className="h-10 border-2 border-black font-bold uppercase rounded-none"
+                        className="h-12 bg-background border-none font-bold text-lg rounded-xl px-4 shadow-inner"
                         autoFocus
                       />
-                      <Button size="icon" variant="outline" className="h-10 w-10 neo-btn rounded-none border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-green-400 text-black" onClick={() => updateModule(module.id)}>
-                        <Check size={18} />
+                      <Button size="icon" className="h-12 w-12 rounded-xl shadow-lg" onClick={() => updateModule(module.id)}>
+                        <Check size={20} />
                       </Button>
-                      <Button size="icon" variant="ghost" className="h-10 w-10 font-black uppercase text-black" onClick={() => setEditingModuleId(null)}>
-                        <X size={18} />
+                      <Button size="icon" variant="ghost" className="h-12 w-12 rounded-xl" onClick={() => setEditingModuleId(null)}>
+                        <X size={20} />
                       </Button>
                     </div>
                   ) : (
-                    <h3 className="text-2xl font-black uppercase tracking-tighter text-black dark:text-white">{module.title}</h3>
+                    <h3 className="text-2xl font-black tracking-tighter text-foreground">{module.title}</h3>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="icon" className="h-10 w-10 neo-btn rounded-none border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-blue-400 text-black bg-white" onClick={() => {
+                <div className="flex items-center gap-3">
+                  <Button variant="ghost" size="icon" className="h-11 w-11 rounded-xl hover:bg-primary/10 hover:text-primary transition-colors" onClick={() => {
                     setEditingModuleId(module.id);
                     setEditingModuleTitle(module.title);
                   }}>
                     <Pencil size={18} />
                   </Button>
-                  <Button variant="outline" size="sm" className="h-10 neo-btn rounded-none border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-purple-400 text-black bg-white font-black uppercase" asChild>
+                  <Button variant="secondary" size="sm" className="h-11 rounded-xl px-5 font-bold tracking-tight" asChild>
                     <Link href={`/creator/courses/${courseId}/modules/${module.id}/lessons/new`}>
-                      <PlusCircle size={16} className="mr-1.5" />
-                      NEW LESSON
+                      <PlusCircle size={16} className="mr-2" />
+                      New Lesson
                     </Link>
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="outline" size="icon" className="h-10 w-10 neo-btn rounded-none border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-red-500 hover:text-white text-red-500 bg-white">
+                      <Button variant="ghost" size="icon" className="h-11 w-11 rounded-xl text-destructive hover:bg-destructive/10">
                         <Trash2 size={18} />
                       </Button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent className="neo-box border-4 border-black rounded-none bg-white text-black p-0 overflow-hidden">
-                      <AlertDialogHeader className="bg-red-500 p-6 border-b-4 border-black text-white">
-                        <AlertDialogTitle className="font-black uppercase text-2xl tracking-tighter flex items-center gap-2"><Trash2 size={24} /> TRASH MODULE?</AlertDialogTitle>
-                        <AlertDialogDescription className="font-bold text-white/90 text-sm uppercase tracking-widest">
+                    <AlertDialogContent className="glass-card border-none rounded-[2rem] p-0 overflow-hidden max-w-md">
+                      <AlertDialogHeader className="p-8 pb-6 text-center">
+                        <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                           <Trash2 className="text-destructive" size={32} />
+                        </div>
+                        <AlertDialogTitle className="text-2xl font-black tracking-tighter">TRASH MODULE?</AlertDialogTitle>
+                        <AlertDialogDescription className="text-base font-medium text-muted-foreground">
                           Warning: This will permanently eradicate the module and all its lessons.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
-                      <AlertDialogFooter className="p-6 bg-gray-100">
-                        <AlertDialogCancel className="neo-btn rounded-none border-2 border-black font-black uppercase hover:bg-gray-200 text-black">ABANDON</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => deleteModule(module.id)} className="neo-btn rounded-none border-2 border-black font-black uppercase bg-black text-white hover:opacity-80">CONFIRM DESTRUCTION</AlertDialogAction>
+                      <AlertDialogFooter className="p-8 pt-0 flex flex-col sm:flex-row gap-3">
+                        <AlertDialogCancel className="w-full rounded-full border-2 font-bold h-12">Abandon</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => deleteModule(module.id)} className="w-full rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 font-bold h-12 border-none">Confirm Destruction</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
                 </div>
               </div>
 
-              <div className="p-6 bg-white dark:bg-black">
+              <div className="p-8">
                 {module.lessons?.length === 0 ? (
-                  <div className="flex items-center justify-center py-8 border-4 border-dashed border-black/20 dark:border-white/20 bg-gray-50 dark:bg-zinc-900 rounded-none">
-                     <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">
-                       NO LESSONS FABRICATED YET.
+                  <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-muted-foreground/20 bg-muted/10 rounded-[1.5rem] gap-4">
+                     <BookOpen className="text-muted-foreground/30" size={48} />
+                     <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                       No lessons fabricated yet.
                      </p>
+                     <Button size="sm" variant="outline" className="rounded-full font-bold" asChild>
+                        <Link href={`/creator/courses/${courseId}/modules/${module.id}/lessons/new`}>Fabricate First Lesson</Link>
+                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {module.lessons?.map((lesson: any, lIdx: number) => (
-                      <div key={lesson.id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 border-2 border-black dark:border-white bg-white dark:bg-black hover:bg-gray-50 dark:hover:bg-zinc-900 transition-colors shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] relative overflow-hidden group/lesson rounded-none">
-                        <div className="flex items-center justify-center w-12 h-12 border-2 border-black bg-yellow-400 group-hover/lesson:bg-yellow-500 transition-colors rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex-shrink-0">
-                          <PlayCircle size={24} className="text-black" />
+                  <div className="grid gap-4">
+                    {module.lessons?.map((lesson: Lesson) => (
+                      <div key={lesson.id} className="flex flex-col sm:flex-row sm:items-center gap-6 p-6 bg-muted/20 hover:bg-muted/40 transition-all rounded-[1.5rem] group/lesson relative border border-transparent hover:border-primary/20">
+                        <div className="flex items-center justify-center w-14 h-14 bg-background rounded-2xl shadow-md group-hover/lesson:scale-105 transition-transform flex-shrink-0">
+                          <PlayCircle size={28} className="text-primary" />
                         </div>
-                        <div className="flex-1 space-y-1">
-                          <h4 className="font-black text-lg uppercase leading-tight">{lesson.title}</h4>
-                          <div className="flex items-center gap-2">
+                        <div className="flex-1 space-y-2">
+                          <h4 className="font-bold text-xl tracking-tight leading-tight">{lesson.title}</h4>
+                          <div className="flex items-center gap-3">
                             {lesson.duration && (
-                              <Badge variant="outline" className="rounded-none border-black font-bold uppercase text-[10px] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-white text-black">
+                              <Badge variant="secondary" className="rounded-full font-black uppercase text-[10px] bg-background text-muted-foreground border-none px-3">
                                 {Math.floor(lesson.duration / 60)} MINS
                               </Badge>
                             )}
-                            {lesson.videoUrl && (
-                              <Badge className="rounded-none border-2 border-black font-bold uppercase text-[10px] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-green-400 text-black hover:bg-green-500">
-                                 VIDEO READY
-                              </Badge>
+                            {lesson.video && (
+                              <VideoStatusBadge status={lesson.video.status} />
                             )}
                           </div>
                         </div>
                         <div className="self-end sm:self-auto">
-                           <Button variant="outline" size="sm" className="neo-btn rounded-none border-2 border-black text-sm font-black uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-black hover:text-white transition-all bg-white text-black" asChild>
+                           <Button variant="outline" size="sm" className="rounded-full font-bold px-5 h-10 hover:bg-primary/10 hover:text-primary transition-all bg-background border-none shadow-sm" asChild>
                              <Link href={`/creator/courses/${courseId}/modules/${module.id}/lessons/${lesson.id}`}>
                                <Pencil size={14} className="mr-2" />
-                               EDIT
+                               Edit
                              </Link>
                            </Button>
                         </div>
@@ -256,3 +354,4 @@ export default function CourseEditorPage() {
     </div>
   );
 }
+

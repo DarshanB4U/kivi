@@ -36,7 +36,7 @@ export async function POST(req: Request) {
       },
     });
 
-    const token = await signToken({ id: user.id, email: user.email, role: user.role });
+    const token = await signToken({ id: user.id, email: user.email, role: user.role as "CREATOR" | "STUDENT" });
 
     const response = NextResponse.json(
       { message: "User created successfully", user: { id: user.id, email: user.email, role: user.role } },
@@ -54,7 +54,8 @@ export async function POST(req: Request) {
     return response;
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json({ message: (error as any).errors[0].message }, { status: 400 });
+      const message = error.issues[0]?.message || "Invalid input data";
+      return NextResponse.json({ message }, { status: 400 });
     }
     return NextResponse.json(
       { message: "Something went wrong" },

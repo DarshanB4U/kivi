@@ -64,6 +64,28 @@ model Module {
   createdAt DateTime @default(now())
 }
 
+enum VideoStatus {
+  UPLOADING
+  PROCESSING
+  READY
+  FAILED
+}
+
+model Video {
+  id              String      @id @default(uuid())
+  title           String?
+  creatorId       String
+  lessonId        String?     @unique
+  originalFileKey String
+  hlsPlaylistKey  String?
+  status          VideoStatus @default(UPLOADING)
+
+  lesson Lesson? @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Lesson {
   id          String  @id @default(uuid())
   title       String
@@ -77,6 +99,7 @@ model Lesson {
   moduleId String
   module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
+  video    Video?
   progress LessonProgress[]
   comments Comment[]
 
