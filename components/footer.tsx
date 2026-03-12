@@ -4,8 +4,8 @@ import { Github, Linkedin } from "lucide-react";
 export function Footer() {
   return (
     <footer className="border-t  flex bg-background py-8 px-6 mt-auto">
-      <div className="max-w-6xl  mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="flex items-center gap-2 font-bold group cursor-pointer">
+      <div className="max-w-6xl  mx-auto flex  md:flex-row items-center justify-between gap-6">
+        <div className="flex  items-center gap-2 font-bold group cursor-pointer">
           <div className="group-hover:scale-110 transition-transform duration-300">
             <img
               src="/kiwi-svgrepo-com.svg"
