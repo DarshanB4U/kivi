@@ -45,11 +45,11 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col relative overflow-hidden transition-colors duration-500">
-      <div className="absolute top-0 left-0 w-full h-[800px] bg-linear-to-b from-primary/20 via-primary/5 to-transparent rounded-b-[100%] blur-3xl -z-10" />
+      <div className="absolute top-0 left-0 w-full h-200 bg-linear-to-b from-primary/20 via-primary/5 to-transparent rounded-b-[100%] blur-3xl -z-10" />
       <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px] -z-10 animate-pulse" />
       <div className="absolute top-[20%] -right-[10%] w-[30%] h-[30%] bg-secondary/15 rounded-full blur-[100px] -z-10 animate-pulse delay-1000" />
 
-      <header className="sticky top-0 z-50 border-b bg-background/60 backdrop-blur-xl supports-[backdrop-filter]:bg-background/40 w-full transition-all duration-300">
+      <header className="sticky top-0 z-50 border-b bg-background/60 backdrop-blur-xl supports-backdrop-filter:bg-background/40 w-full transition-all duration-300">
         <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-2 group cursor-pointer">
             <div className="group-hover:scale-110 transition-transform duration-300">
