@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Kivi - VOD Platform for Course Creators
 
-## Getting Started
+![Kivi Architecture](./public/architecture/image.png)
 
-First, run the development server:
+Kivi is a high-performance Video-on-Demand (VOD) platform designed for course creators, featuring a robust video processing pipeline and secure adaptive bitrate streaming.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🚀 Key Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Adaptive HLS Streaming**: Automated transcoding to 720p/480p for smooth playback.
+- **Secure Delivery**: Custom HLS proxy validates user sessions for every 6-second video segment.
+- **Asynchronous Processing**: Background workers handle heavy FFmpeg tasks via BullMQ.
+- **Zero Egress Storage**: Leverages Cloudflare R2 to keep delivery costs low.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🛠️ Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Frontend**: Next.js 15 (App Router), Tailwind CSS, Shadcn UI
+- **Backend**: Node.js, Prisma ORM (PostgreSQL)
+- **Infra**: Bun, Redis, BullMQ, Cloudflare R2
+- **Processing**: FFmpeg
 
-## Learn More
+## 🏁 Quick Start
 
-To learn more about Next.js, take a look at the following resources:
+1. **Install Dependencies**:
+   ```bash
+   bun install
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2. **Environment Setup**:
+   Copy `.env.example` to `.env` and configure your Database, Redis, and R2 credentials.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. **Database Setup**:
+   ```bash
+   bunx prisma db push
+   ```
 
-## Deploy on Vercel
+4. **Run Development Server**:
+   ```bash
+   bun dev
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+5. **Run Transcoding Worker**:
+   ```bash
+   bun run worker:transcode
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+*For detailed technical documentation, see the `architecture/` artifacts.*
