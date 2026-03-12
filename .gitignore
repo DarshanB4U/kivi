@@ -41,3 +41,17 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+
+# Terraform
+.terraform/
+terraform.tfstate
+terraform.tfstate.*
+crash.log
+
+# Terraform lock
+.terraform.lock.hcl
+
+# Environment files
+*.tfvars
+*.tfvars.json
