@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { Github, Linkedin } from "lucide-react";
+import { Github, Linkedin, Briefcase } from "lucide-react";
 
 export function Footer() {
   return (
     <footer className="border-t  flex bg-background py-8 px-6 mt-auto">
-      <div className="max-w-6xl  mx-auto flex  md:flex-row items-center justify-between gap-6">
+      <div className="max-w-6xl  mx-auto flex  md:flex-row items-center justify-between gap-24">
         <div className="flex  items-center gap-2 font-bold group cursor-pointer">
           <div className="group-hover:scale-110 transition-transform duration-300">
             <img
@@ -17,7 +17,7 @@ export function Footer() {
         </div>
 
         {/* Creator Info */}
-        <div className="flex flex-col items-center md:items-start text-sm text-muted-foreground">
+        <div className="flex  items-center gap-2 md:items-start text-sm text-muted-foreground">
           Built with 🧡 by{" "}
           <span className="font-semibold text-foreground">Darshan Bondre</span>
         </div>
@@ -42,6 +42,7 @@ export function Footer() {
           >
             <Linkedin size={20} />
           </a>
+          ,
         </div>
       </div>
     </footer>
