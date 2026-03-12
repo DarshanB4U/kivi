@@ -3,19 +3,23 @@ import { Github, Linkedin } from "lucide-react";
 
 export function Footer() {
   return (
-    <footer className="border-t bg-background py-8 px-6 mt-auto">
-      <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-        
+    <footer className="border-t  flex bg-background py-8 px-6 mt-auto">
+      <div className="max-w-6xl  mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex items-center gap-2 font-bold group cursor-pointer">
           <div className="group-hover:scale-110 transition-transform duration-300">
-             <img src="/kiwi-svgrepo-com.svg" alt="Kivi Logo" className="w-6 h-6" />
+            <img
+              src="/kiwi-svgrepo-com.svg"
+              alt="Kivi Logo"
+              className="w-6 h-6"
+            />
           </div>
           <span className="text-lg tracking-tighter">Kivi</span>
         </div>
-        
+
         {/* Creator Info */}
         <div className="flex flex-col items-center md:items-start text-sm text-muted-foreground">
-            Built with 🧡 by <span className="font-semibold text-foreground">Darshan Bondre</span>
+          Built with 🧡 by{" "}
+          <span className="font-semibold text-foreground">Darshan Bondre</span>
         </div>
 
         {/* Links */}
@@ -39,15 +43,6 @@ export function Footer() {
             <Linkedin size={20} />
           </a>
         </div>
-
-      </div>
-      
-      <div className="max-w-6xl mx-auto mt-8 pt-8 border-t flex flex-col md:flex-row items-center justify-between text-xs text-muted-foreground/60 gap-4">
-         <p>© {new Date().getFullYear()} Kivi Platform. All rights reserved.</p>
-         <div className="flex gap-4">
-            <Link href="#" className="hover:text-foreground">Privacy Policy</Link>
-            <Link href="#" className="hover:text-foreground">Terms of Service</Link>
-         </div>
       </div>
     </footer>
   );
