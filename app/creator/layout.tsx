@@ -15,23 +15,23 @@ export default async function CreatorLayout({ children }: { children: React.Reac
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground selection:bg-[var(--neo-yellow)] selection:text-black">
-      <header className="sticky top-0 z-50 border-b-4 border-black dark:border-white bg-white dark:bg-black py-4">
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60 py-4 w-full">
         <div className="max-w-7xl mx-auto flex h-14 items-center justify-between px-6">
           <div className="flex items-center gap-8">
-            <Link href="/creator/courses" className="text-2xl font-black uppercase italic tracking-tighter hover:bg-[var(--neo-yellow)] hover:text-black px-2 transition-colors">
-              Kivi
+            <Link href="/creator/courses" className="text-2xl font-bold tracking-tight text-primary transition-colors hover:text-primary/80">
+              Kivi Creator
             </Link>
             <nav className="hidden md:flex items-center gap-6">
-              <Link href="/creator/courses" className="text-sm font-black uppercase tracking-widest hover:underline decoration-4 underline-offset-4">
+              <Link href="/creator/courses" className="text-sm font-medium tracking-wide hover:text-primary transition-colors">
                 My Courses
               </Link>
             </nav>
           </div>
           <div className="flex items-center gap-4">
             <div className="hidden sm:flex flex-col items-end mr-2">
-              <span className="text-[10px] font-black uppercase tracking-widest leading-none">CREATOR</span>
-              <span className="text-xs font-bold truncate max-w-[150px]">{decoded.email}</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest leading-none text-muted-foreground">CREATOR</span>
+              <span className="text-sm font-semibold truncate max-w-[150px]">{decoded.email.split('@')[0]}</span>
             </div>
             <ThemeToggle />
             <SignoutButton />

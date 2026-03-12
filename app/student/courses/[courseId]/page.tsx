@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
 
 export default function CoursePlayerPage() {
   const params = useParams();
@@ -72,7 +73,7 @@ export default function CoursePlayerPage() {
         setComments([comment, ...comments]);
         setNewComment("");
       }
-    } catch { alert("Failed to post comment"); }
+    } catch { toast.error("Failed to post comment"); }
     finally { setIsPostingComment(false); }
   };
 
@@ -88,7 +89,7 @@ export default function CoursePlayerPage() {
       });
     } catch {
       setProgressData((p) => ({ ...p, [lessonId]: !completed }));
-      alert("Failed to save progress");
+      toast.error("Failed to save progress");
     }
   };
 
@@ -103,9 +104,9 @@ export default function CoursePlayerPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ courseId }),
       });
-      if (res.ok) { alert("Enrolled successfully!"); fetchCourse(); }
-      else { const d = await res.json(); alert(d.message || "Enrollment failed"); }
-    } catch { alert("Something went wrong"); }
+      if (res.ok) { toast.success("Enrolled successfully!"); fetchCourse(); }
+      else { const d = await res.json(); toast.error(d.message || "Enrollment failed"); }
+    } catch { toast.error("Something went wrong"); }
   };
 
   if (!course.isEnrolled) {

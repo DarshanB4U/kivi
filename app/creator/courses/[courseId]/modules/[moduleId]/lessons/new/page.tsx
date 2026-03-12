@@ -2,8 +2,15 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { UploadCloud, Loader2 } from "lucide-react";
+import { UploadCloud, Loader2, ArrowLeft } from "lucide-react";
 import { z } from "zod";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import { toast } from "sonner";
 
 const lessonSchema = z.object({
   title: z.string().min(2, "Title is required"),
@@ -64,7 +71,7 @@ export default function NewLessonPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) {
-      alert("Please select a video file");
+      toast.error("Please select a video file");
       return;
     }
 
@@ -95,9 +102,9 @@ export default function NewLessonPage() {
       router.refresh();
     } catch (error) {
       if (error instanceof z.ZodError) {
-        alert((error as any).errors[0].message);
+        toast.error((error as any).errors[0].message);
       } else {
-        alert("Error uploading lesson. Please check console.");
+        toast.error("Error uploading lesson. Please check console.");
       }
       console.error(error);
     } finally {
@@ -107,75 +114,90 @@ export default function NewLessonPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto py-8 space-y-8">
+    <div className="max-w-2xl mx-auto py-8 px-4 space-y-8">
+      <Link 
+        href={`/creator/courses/${courseId}`} 
+        className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-all gap-1"
+      >
+        <ArrowLeft size={16} />
+        Back to Editor
+      </Link>
+
       <div>
-        <h1 className="text-3xl font-bold">Add New Lesson</h1>
-        <p className="text-neutral-400 mt-2">Upload your video lesson</p>
+        <h1 className="text-3xl font-bold tracking-tight">Add New Lesson</h1>
+        <p className="text-muted-foreground mt-2">Upload your video lesson and provide details below.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6 bg-neutral-900 border border-neutral-800 p-8 rounded-xl">
-        <div>
-          <label className="block text-sm font-medium text-neutral-300 mb-2">Lesson Title</label>
-          <input
-            type="text"
-            className="w-full bg-neutral-950 border border-neutral-700 rounded-md px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            placeholder="e.g. Getting Started"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-neutral-300 mb-2">Description (Optional)</label>
-          <textarea
-            className="w-full bg-neutral-950 border border-neutral-700 rounded-md px-4 py-2 min-h-[100px] focus:ring-2 focus:ring-indigo-500 outline-none"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            placeholder="What will students learn in this specific lesson?"
-          />
-        </div>
-
-        <div className="border border-dashed border-neutral-700 bg-neutral-950/50 rounded-lg p-8 flex flex-col items-center justify-center relative hover:bg-neutral-900/50 transition-colors">
-          <input 
-            type="file" 
-            accept="video/*" 
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            onChange={handleFileChange}
-          />
-          <UploadCloud size={40} className="text-indigo-400 mb-4" />
-          <h3 className="font-medium">
-            {file ? file.name : "Click or drag to upload video"}
-          </h3>
-          <p className="text-sm text-neutral-500 mt-1">MP4, WebM (Max 5GB)</p>
-        </div>
-
-        {isUploading && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm font-medium text-indigo-400">
-              <span className="flex items-center gap-2">
-                <Loader2 size={16} className="animate-spin" /> 
-                Uploading...
-              </span>
-              <span>{progress}%</span>
-            </div>
-            <div className="h-2 w-full bg-neutral-800 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-indigo-500 transition-all duration-300" 
-                style={{ width: `${progress}%` }} 
+      <Card>
+        <CardContent className="pt-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="title">Lesson Title</Label>
+              <Input
+                id="title"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="e.g. Getting Started"
+                required
               />
             </div>
-          </div>
-        )}
 
-        <button
-          type="submit"
-          disabled={isUploading}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-md transition-colors disabled:opacity-50"
-        >
-          Save Lesson
-        </button>
-      </form>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description (Optional)</Label>
+              <Textarea
+                id="description"
+                className="min-h-[100px]"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="What will students learn in this specific lesson?"
+              />
+            </div>
+
+            <div className="space-y-2">
+               <Label>Video Content</Label>
+               <div className="border border-dashed bg-muted/30 rounded-lg p-8 flex flex-col items-center justify-center relative hover:bg-muted/50 transition-colors">
+                 <input 
+                   type="file" 
+                   accept="video/*" 
+                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                   onChange={handleFileChange}
+                 />
+                 <UploadCloud size={40} className="text-muted-foreground mb-4" />
+                 <h3 className="font-medium text-foreground text-center">
+                   {file ? file.name : "Click or drag to upload video"}
+                 </h3>
+                 <p className="text-sm text-muted-foreground mt-1">MP4, WebM (Max 5GB)</p>
+               </div>
+            </div>
+
+            {isUploading && (
+              <div className="space-y-2 bg-primary/5 p-4 rounded-lg border border-primary/10">
+                <div className="flex items-center justify-between text-sm font-medium text-primary">
+                  <span className="flex items-center gap-2">
+                    <Loader2 size={16} className="animate-spin" /> 
+                    Uploading...
+                  </span>
+                  <span>{progress}%</span>
+                </div>
+                <div className="h-2 w-full bg-primary/10 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-primary transition-all duration-300" 
+                    style={{ width: `${progress}%` }} 
+                  />
+                </div>
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              disabled={isUploading}
+              className="w-full h-12 text-base"
+            >
+              Save Lesson
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

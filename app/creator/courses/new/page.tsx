@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 const formSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
@@ -37,7 +38,7 @@ export default function NewCoursePage() {
       price: formData.price,
     });
     setGeneratedModules(data.modules);
-    alert("Course outline applied! You can now review and create the course.");
+    toast.success("Course outline applied! You can now review and create the course.");
   };
 
   const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -54,7 +55,7 @@ export default function NewCoursePage() {
       const { presignedUrl, publicUrl } = await res.json();
       await fetch(presignedUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
       setThumbnail(publicUrl);
-    } catch { alert("Failed to upload thumbnail"); }
+    } catch { toast.error("Failed to upload thumbnail"); }
     finally { setIsUploading(false); }
   };
 
@@ -73,7 +74,7 @@ export default function NewCoursePage() {
         }),
       });
       if (res.ok) { router.push("/creator/courses"); router.refresh(); }
-      else { const d = await res.json(); alert(d.message || "Something went wrong"); }
+      else { const d = await res.json(); toast.error(d.message || "Something went wrong"); }
     } catch (error) {
       if (error instanceof z.ZodError) {
         const e: Record<string, string> = {};
@@ -86,7 +87,7 @@ export default function NewCoursePage() {
   return (
     <div className="max-w-2xl mx-auto space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold">New Course</h2>
+        <h2 className="text-xl font-bold tracking-tight">New Course</h2>
         <AICourseArchitect onApply={handleAIApplied} />
       </div>
       
@@ -103,7 +104,7 @@ export default function NewCoursePage() {
               {thumbnail ? (
                 <div className="relative aspect-video rounded-lg overflow-hidden border bg-muted">
                   <img src={thumbnail} alt="Preview" className="w-full h-full object-cover" />
-                  <Button variant="secondary" size="xs" className="absolute top-2 right-2" type="button" onClick={() => setThumbnail("")}>
+                  <Button variant="secondary" size="sm" className="absolute top-2 right-2 text-xs" type="button" onClick={() => setThumbnail("")}>
                     Remove
                   </Button>
                 </div>
@@ -113,7 +114,7 @@ export default function NewCoursePage() {
                   {isUploading ? <Loader2 className="animate-spin text-muted-foreground" size={24} /> : (
                     <>
                       <UploadCloud className="text-muted-foreground" size={24} />
-                      <span className="text-xs text-muted-foreground">Click to upload</span>
+                      <span className="text-xs text-muted-foreground font-medium">Click to upload</span>
                     </>
                   )}
                 </div>
@@ -145,14 +146,14 @@ export default function NewCoursePage() {
             </div>
 
             {generatedModules.length > 0 && (
-              <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-lg">
-                <p className="text-sm font-medium text-indigo-900">
+              <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg">
+                <p className="text-sm font-medium text-primary">
                   ✨ {generatedModules.length} Modules and lessons will be created automatically.
                 </p>
               </div>
             )}
 
-            <Button className="w-full" disabled={isSubmitting}>
+            <Button className="w-full h-12 text-base font-semibold" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isSubmitting ? "Creating..." : "Create Course"}
             </Button>
