@@ -8,39 +8,52 @@ const courseSchema = z.object({
   description: z.string().min(10),
   price: z.number().min(0),
   thumbnail: z.string().optional(),
-  modules: z.array(
-    z.object({
-      title: z.string(),
-      lessons: z.array(
-        z.object({
-          title: z.string(),
-          description: z.string(),
-        })
-      ),
-    })
-  ).optional(),
+  modules: z
+    .array(
+      z.object({
+        title: z.string(),
+        lessons: z.array(
+          z.object({
+            title: z.string(),
+            description: z.string(),
+          }),
+        ),
+      }),
+    )
+    .optional(),
 });
 
 export async function GET() {
+  const session = await getSession();
+  if (!session || session.role !== "CREATOR") {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
   const courses = await prisma.course.findMany({
-    include: {
-      creator: {
-        select: {
-          name: true,
-          email: true,
-        },
-      },
-      _count: {
-        select: {
-          modules: true,
-          enrollments: true,
-        },
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
+    where: {
+      creatorId: session.id,
     },
   });
+
+  // const courses = await prisma.course.findMany({
+  //   include: {
+  //     creator: {
+  //       select: {
+  //         name: true,
+  //         email: true,
+  //       },
+  //     },
+  //     _count: {
+  //       select: {
+  //         modules: true,
+  //         enrollments: true,
+  //       },
+  //     },
+  //   },
+  //   orderBy: {
+  //     createdAt: "desc",
+  //   },
+  // });
 
   return NextResponse.json(courses);
 }
@@ -54,7 +67,8 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { title, description, price, thumbnail, modules } = courseSchema.parse(body);
+    const { title, description, price, thumbnail, modules } =
+      courseSchema.parse(body);
 
     const course = await prisma.course.create({
       data: {
@@ -63,20 +77,22 @@ export async function POST(req: Request) {
         price,
         thumbnail,
         creatorId: session.id,
-        modules: modules ? {
-          create: modules.map((module, mIdx) => ({
-            title: module.title,
-            order: mIdx,
-            lessons: {
-              create: module.lessons.map((lesson, lIdx) => ({
-                title: lesson.title,
-                description: lesson.description,
-                order: lIdx,
-                videoUrl: "", // Placeholder for AI generated outline
+        modules: modules
+          ? {
+              create: modules.map((module, mIdx) => ({
+                title: module.title,
+                order: mIdx,
+                lessons: {
+                  create: module.lessons.map((lesson, lIdx) => ({
+                    title: lesson.title,
+                    description: lesson.description,
+                    order: lIdx,
+                    videoUrl: "", // Placeholder for AI generated outline
+                  })),
+                },
               })),
-            },
-          })),
-        } : undefined,
+            }
+          : undefined,
       },
     });
 
@@ -89,7 +105,7 @@ export async function POST(req: Request) {
     console.error("Course Creation Error:", error);
     return NextResponse.json(
       { message: "Something went wrong" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
