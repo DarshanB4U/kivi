@@ -4,6 +4,7 @@ import { use, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { BookOpen, Search } from "lucide-react";
+import type { Prisma } from "@/app/generated/prisma/client";
 import {
   Card,
   CardContent,
@@ -17,11 +18,22 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 
-type Course = Awaited<
-  ReturnType<
-    typeof import("@/lib/prisma").prisma.course.findMany
-  >
->[number];
+type Course = Prisma.CourseGetPayload<{
+  include: {
+    creator: {
+      select: {
+        name: true;
+        email: true;
+      };
+    };
+    _count: {
+      select: {
+        modules: true;
+        enrollments: true;
+      };
+    };
+  };
+}>;
 
 interface StudentCoursesListProps {
   coursesPromise: Promise<Course[]>;
