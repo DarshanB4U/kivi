@@ -1,0 +1,131 @@
+"use client";
+
+import { use, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { BookOpen, Search } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+
+type Course = Awaited<
+  ReturnType<
+    typeof import("@/lib/prisma").prisma.course.findMany
+  >
+>[number];
+
+interface StudentCoursesListProps {
+  coursesPromise: Promise<Course[]>;
+}
+
+export function StudentCoursesList({
+  coursesPromise,
+}: StudentCoursesListProps) {
+  const courses = use(coursesPromise);
+  const [search, setSearch] = useState("");
+
+  const filtered = courses.filter(
+    (course) =>
+      course.title.toLowerCase().includes(search.toLowerCase()) ||
+      course.description.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Explore Courses
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Discover courses and start learning.
+          </p>
+        </div>
+        <div className="relative w-full md:w-72">
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+            size={16}
+          />
+          <Input
+            placeholder="Search courses..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="py-16 text-center text-muted-foreground">
+            {search
+              ? "No courses match your search."
+              : "No courses available yet."}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filtered.map((course) => (
+            <Card key={course.id} className="flex flex-col">
+              <div className="aspect-video bg-muted relative overflow-hidden rounded-t-xl">
+                {course.thumbnail ? (
+                  <Image
+                    src={course.thumbnail}
+                    alt={course.title}
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <BookOpen className="text-muted-foreground/30" size={40} />
+                  </div>
+                )}
+              </div>
+
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <Badge variant="secondary">
+                    {course._count?.modules || 0} modules
+                  </Badge>
+                  <span className="text-sm font-semibold">${course.price}</span>
+                </div>
+                <CardTitle className="line-clamp-2 leading-snug mt-2">
+                  {course.title}
+                </CardTitle>
+                <CardDescription className="line-clamp-2">
+                  {course.description}
+                </CardDescription>
+              </CardHeader>
+
+              <CardFooter className="mt-auto flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Avatar className="h-6 w-6">
+                    <AvatarFallback className="text-[10px]">
+                      {course.creator?.name?.[0] || "K"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-xs text-muted-foreground">
+                    {course.creator?.name || "Instructor"}
+                  </span>
+                </div>
+                <Button size="sm" asChild>
+                  <Link href={`/student/courses/${course.id}`}>View</Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

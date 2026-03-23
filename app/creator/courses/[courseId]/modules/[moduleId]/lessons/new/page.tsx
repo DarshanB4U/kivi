@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import { uploadFileWithProgress } from "@/lib/upload/upload-file-with-progress";
 
 const lessonSchema = z.object({
   title: z.string().min(2, "Title is required"),
@@ -38,7 +39,7 @@ export default function NewLessonPage() {
   };
 
   const uploadToR2 = async (file: File) => {
-    setProgress(10);
+    setProgress(5);
     // Get presigned URL (no lessonId yet since lesson doesn't exist)
     const res = await fetch("/api/upload", {
       method: "POST",
@@ -51,22 +52,16 @@ export default function NewLessonPage() {
 
     if (!res.ok) throw new Error("Failed to get presigned URL");
     const { presignedUrl, publicUrl, videoId } = await res.json();
-    
-    setProgress(40);
 
-    // Upload directly to R2
-    const uploadRes = await fetch(presignedUrl, {
-      method: "PUT",
-      body: file,
-      headers: {
-        "Content-Type": file.type,
+    await uploadFileWithProgress({
+      url: presignedUrl,
+      file,
+      contentType: file.type,
+      onProgress: (uploadPercent) => {
+        setProgress(5 + Math.round(uploadPercent * 0.8));
       },
     });
 
-    setProgress(80);
-
-    if (!uploadRes.ok) throw new Error("Failed to upload video to R2");
-    
     return { publicUrl, videoId };
   };
 
@@ -120,7 +115,7 @@ export default function NewLessonPage() {
       router.refresh();
     } catch (error) {
       if (error instanceof z.ZodError) {
-        toast.error((error as any).errors[0].message);
+        toast.error(error.issues[0]?.message || "Invalid lesson data");
       } else {
         toast.error("Error uploading lesson. Please check console.");
       }
@@ -230,4 +225,3 @@ export default function NewLessonPage() {
     </div>
   );
 }
-

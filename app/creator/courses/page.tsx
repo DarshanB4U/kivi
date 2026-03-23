@@ -55,6 +55,7 @@ export default function CreatorCoursesPage() {
   };
 
   if (isLoading) {
+    
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="animate-spin text-muted-foreground" size={24} />

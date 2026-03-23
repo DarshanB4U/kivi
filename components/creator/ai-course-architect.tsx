@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
+import { toast } from "sonner";
 
 interface Lesson {
   title: string;
@@ -56,7 +57,7 @@ export function AICourseArchitect({ onApply }: AICourseArchitectProps) {
       setGeneratedOutline(data);
     } catch (error) {
       console.error(error);
-      alert("Failed to generate course outline. Please check your API key.");
+      toast.error("Failed to generate course outline. Please check your API key.");
     } finally {
       setIsGenerating(false);
     }

@@ -8,7 +8,7 @@ const progressSchema = z.object({
   completed: z.boolean(),
 });
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
     const session = await getSession();
 
@@ -23,7 +23,7 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json(progress);
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { message: "Something went wrong" },
       { status: 500 }
@@ -51,11 +51,13 @@ export async function POST(req: Request) {
       },
       update: {
         completed,
+        watchedAt: completed ? new Date() : null,
       },
       create: {
         userId: session.id,
         lessonId,
         completed,
+        watchedAt: completed ? new Date() : null,
       },
     });
 

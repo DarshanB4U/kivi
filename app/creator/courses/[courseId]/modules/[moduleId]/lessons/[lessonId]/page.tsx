@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { UploadCloud, Loader2, ArrowLeft, PlayCircle, Save, Trash2 } from "lucide-react";
 import { z } from "zod";
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { HlsPlayer } from "@/components/video/hls-player";
+import { uploadFileWithProgress } from "@/lib/upload/upload-file-with-progress";
 
 const lessonSchema = z.object({
   title: z.string().min(2, "Title is required"),
@@ -48,7 +49,6 @@ export default function EditLessonPage() {
   const router = useRouter();
   const params = useParams();
   const courseId = params.courseId as string;
-  const moduleId = params.moduleId as string;
   const lessonId = params.lessonId as string;
 
   const [formData, setFormData] = useState({ title: "", description: "" });
@@ -61,15 +61,8 @@ export default function EditLessonPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  useEffect(() => {
-    fetchLesson();
-  }, [lessonId]);
-
-  const fetchLesson = async () => {
+  const fetchLesson = useCallback(async () => {
     try {
-      const res = await fetch(`/api/lessons`); 
-      // Note: The existing API might need fetching all and filtering or we need a specific [id] endpoint.
-      // Checking existing files showed app/api/lessons/[id]/route.ts exists.
       const lessonRes = await fetch(`/api/lessons/${lessonId}`);
       if (lessonRes.ok) {
         const data: LessonData = await lessonRes.json();
@@ -84,7 +77,11 @@ export default function EditLessonPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [lessonId]);
+
+  useEffect(() => {
+    fetchLesson();
+  }, [fetchLesson]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -93,7 +90,7 @@ export default function EditLessonPage() {
   };
 
   const uploadToR2 = async (file: File) => {
-    setProgress(10);
+    setProgress(5);
     const res = await fetch("/api/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -106,17 +103,15 @@ export default function EditLessonPage() {
 
     if (!res.ok) throw new Error("Failed to get presigned URL");
     const { presignedUrl, publicUrl, videoId } = await res.json();
-    
-    setProgress(40);
 
-    const uploadRes = await fetch(presignedUrl, {
-      method: "PUT",
-      body: file,
-      headers: { "Content-Type": file.type },
+    await uploadFileWithProgress({
+      url: presignedUrl,
+      file,
+      contentType: file.type,
+      onProgress: (uploadPercent) => {
+        setProgress(5 + Math.round(uploadPercent * 0.8));
+      },
     });
-
-    setProgress(80);
-    if (!uploadRes.ok) throw new Error("Failed to upload video to R2");
 
     // Signal upload complete — triggers transcoding
     if (videoId) {
@@ -364,4 +359,3 @@ export default function EditLessonPage() {
     </div>
   );
 }
-
